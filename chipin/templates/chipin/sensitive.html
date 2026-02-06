@@ -1,0 +1,8 @@
+{% extends 'chipin/base.html' %}
+{% load static %}
+{% block title %}ChipIn{% endblock %}
+{% block content %}
+    <h1>Sensitive Area</h1>
+    <p>You're viewing a page protected by OTP. If you can see this, your session is 2FA-verified.</p>
+    <p><a href="{% url 'chipin:home' %}">Back to Home</a></p>
+{% endblock %}
