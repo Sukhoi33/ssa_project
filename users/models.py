@@ -5,10 +5,6 @@ from django.dispatch import receiver
 
 @receiver(post_save, sender=User)
 def ensure_profile(sender, instance: User, created, **kwargs):
-    """
-    Always have a Profile. If created and nickname missing, assign a safe unique default.
-    This covers superusers created via createsuperuser and any programmatic user creation.
-    """
     profile, made = Profile.objects.get_or_create(user=instance)
     if (made or not profile.nickname):
         default_base = instance.username or (instance.email.split("@")[0] if instance.email else "user")
@@ -18,15 +14,17 @@ def ensure_profile(sender, instance: User, created, **kwargs):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     nickname = models.CharField(max_length=30, unique=True)
+    max_spend = models.DecimalField(max_digits=10, decimal_places=2, default=100.00)  # Max spend for each event
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=100.00)  # User's current balance
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs) 
 
     def __str__(self):
         return self.user.username
 
 def _unique_nickname(base: str) -> str:
-    """
-    Generate a unique nickname from a base string (e.g., username).
-    Ensures we never leave nickname null/blank, even for superusers created via CLI.
-    """
     base = (base or "user").strip() or "user"
     candidate = base
     i = 1

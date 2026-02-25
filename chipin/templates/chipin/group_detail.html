@@ -2,12 +2,108 @@
 {% block title %}{{ group.name }}{% endblock %}
 {% block content %}
   <h1>{{ group.name }}</h1>
-  <p>Administrator: {{ group.admin.username }}</p>
-  <p>Members:</p>
+  <p>Administrator: {{ group.admin.profile.nickname }}</p>
+
+  <!-- Only the admin sees "Invite Users" -->
+  {% if request.user == group.admin %}
+    <a href="{% url 'chipin:invite_users' group.id %}">Invite Users</a>
+  {% endif %}
+
+  <h2>Members</h2>
   <ul>
     {% for member in group.members.all %}
-      <li>{{ member.username }}</li>
+      <li>{{ member.profile.nickname }}</li>
+    {% empty %}
+      <li>No members yet.</li>
     {% endfor %}
   </ul>
-  <a href="{% url 'chipin:invite_users' group.id %}">Invite Users</a> <a href="{% url 'chipin:home' %}">Back to Homepage</a>
+
+  <!-- If you are NOT a member, show "Request to Join" -->
+  {% if request.user not in group.members.all %}
+    <a href="{% url 'chipin:request_to_join_group' group.id %}">Request to Join</a>
+  {% endif %}
+
+<h2>Group Chat</h2>
+  <!-- Display existing comments -->
+  <div class="comments-section">
+      {% for comment in comments %}
+          <div class="comment">
+              <p><strong>{{ comment.user.profile.nickname }}</strong>: {{ comment.content }}</p>
+              <small>Posted on {{ comment.created_at }}</small>
+              <!-- Allow the comment owner or admin to edit or delete -->
+              {% if comment.user == request.user or request.user == group.admin %}
+                  <a href="{% url 'chipin:edit_comment' group.id comment.id %}">Edit</a>
+                  <a href="{% url 'chipin:delete_comment' comment.id %}" onclick="return confirm('Are you sure?')">Delete</a>
+              {% endif %}
+          </div>
+      {% empty %}
+          <p>No comments yet. Be the first to comment!</p>
+      {% endfor %}
+  </div>
+
+  <!-- Comment form (used for both new comments and editing existing comments) -->
+  {% if request.user in group.members.all %}
+    <h3>{% if comment_to_edit %}Edit Comment{% else %}Add a comment{% endif %}</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            {{ form.content.errors }}
+            {{ form.content }}
+        </div>
+        <button type="submit">{% if comment_to_edit %}Save Comment{% else %}Post Comment{% endif %}</button>
+    </form>
+  {% else %}
+    <p>You must be a group member to post or edit comments.</p>
+  {% endif %}
+
+  <!-- Join Requests: show only to members (including admin) -->
+  {% if request.user in group.members.all %}
+    <h2>Join Requests</h2>
+    <ul>
+      {% for jr in group.join_requests.all %}
+        <li>
+          {{ jr.user.profile.nickname }} has requested to join.
+          {% if jr.user not in group.members.all and jr.user != group.admin %}
+            <a href="{% url 'chipin:vote_on_join_request' group.id jr.id 'approve' %}">Approve</a>
+            <a href="{% url 'chipin:vote_on_join_request' group.id jr.id 'reject' %}">Reject</a>
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>No join requests pending.</li>
+      {% endfor %}
+    </ul>
+    
+      <h2>Group Events</h2>
+    <!-- Only display "Create New Event" link to the group administrator -->
+    {% if request.user == group.admin %}
+        <a href="{% url 'chipin:create_event' group.id %}" class="btn btn-primary">Create New Event</a>
+    {% endif %}
+    <ul>
+        {% for event, info in event_share_info.items %}
+            <li>
+                <strong>{{ event.name }}</strong> - Date: {{ event.date }},
+                <strong>Total Spend:</strong> ${{ event.total_spend }},
+                <strong>Current Share:</strong> ${{ info.share }},
+                <strong>Status:</strong> <span class="event-status">{{ info.status }}</span><br>
+                <!-- If the user has already joined the event, display the "Leave Event" link -->
+                {% if info.joined %}
+                    <span class="joined">You have already joined this event.</span>
+                    <a href="{% url 'chipin:leave_event' group.id event.id %}" class="btn btn-warning" onclick="return confirm('Are you sure you want to leave this event?');">Leave Event</a>
+                {% else %}
+                    <!-- If the user is eligible, show the "Join Event" link -->
+                    {% if info.eligible %}
+                        <span class="eligible">You are eligible to join this event.</span>
+                        <a href="{% url 'chipin:join_event' group.id event.id %}" class="btn btn-success">Join Event</a>
+                    {% else %}
+                        <span class="waiting-room">You are in the waiting room for this event. Increase your balance or wait for more members to join.</span>
+                    {% endif %}
+                {% endif %}
+                <!-- Only display the "Delete Event" link if the user is the group admin -->
+                {% if request.user == group.admin %}
+                    <a href="{% url 'chipin:delete_event' group.id event.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this event?');">Delete Event</a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+  {% endif %}
 {% endblock %}
