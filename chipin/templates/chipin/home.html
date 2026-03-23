@@ -58,4 +58,43 @@
         <li>You are not a member of any group yet.</li>
         {% endfor %}
     </ul>
+    <h2>Transactions</h2>
+    <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
+    <table style="border-collapse: collapse; width: 100%;">
+    <thead>
+        <tr>
+            <th style="border-bottom: 1px solid #ccc; text-align: left; padding: 8px;">
+                Date
+            </th>
+            <th style="border-bottom: 1px solid #ccc; text-align: left; padding: 8px;">
+                Amount
+            </th>
+            <th style="border-bottom: 1px solid #ccc; text-align: left; padding: 8px;">
+                Description
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for tx in transactions %}
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                {{ tx.created_at }}
+            </td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                ${{ tx.amount }}
+            </td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                {{ tx.description }}
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="3" style="padding: 8px;">
+                No transactions to display.
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
 {% endblock %}

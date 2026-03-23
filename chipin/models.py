@@ -61,49 +61,49 @@ class Comment(models.Model):
 
 
 class Event(models.Model):
-    STATUS_PENDING = 'Pending'
-    STATUS_ACTIVE = 'Active'
-    STATUS_COMPLETED = 'Completed'
-    STATUS_CHOICES = [
-        (STATUS_PENDING, 'Pending'),
-        (STATUS_ACTIVE, 'Active'),
-        (STATUS_COMPLETED, 'Completed'),
-    ]
+    class Status(models.TextChoices):
+        PENDING  = "Pending",  "Pending"
+        ACTIVE   = "Active",   "Active"
+        ARCHIVED = "Archived", "Archived"
 
     name = models.CharField(max_length=200)
     date = models.DateTimeField()
     total_spend = models.DecimalField(max_digits=10, decimal_places=2)
     group = models.ForeignKey(Group, related_name='events', on_delete=models.CASCADE)
     members = models.ManyToManyField(User, related_name='events_joined', blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} ({self.group.name})"
 
     def calculate_share(self):
-        """Return the per-member share as Decimal. If there are no members yet,
-        divide by the number of group members to give an expected share.
-        """
-        try:
-            total = Decimal(self.total_spend)
-        except Exception:
-            total = Decimal('0.00')
+        members_count = self.group.members.count()
+        return 0 if members_count == 0 else self.total_spend / members_count
 
-        num = self.members.count()
-        if num == 0:
-            num = self.group.members.count() or 1
-        return (total / Decimal(num)).quantize(Decimal('0.01'))
-
-    def check_status(self):
-        """Set status to Active if all current group members can afford the share."""
+    def check_status(self, save=True):
+        if self.status == self.Status.ARCHIVED:
+            return self.status
         share = self.calculate_share()
         for member in self.group.members.all():
-            try:
-                max_spend = member.profile.max_spend
-            except Exception:
-                max_spend = Decimal('0.00')
-            if max_spend < share:
-                self.status = self.STATUS_PENDING
-                return
-        self.status = self.STATUS_ACTIVE
+            if member.profile.max_spend < share:
+                self.status = self.Status.PENDING
+                if save:
+                    self.save(update_fields=["status"])
+                return self.status
+        self.status = self.Status.ACTIVE
+        if save:
+            self.save(update_fields=["status"])
+        return self.status
+
+    def archive(self, save=True):
+        self.status = self.Status.ARCHIVED
+        self.archived_at = timezone.now()
+        if save:
+            self.save(update_fields=["status", "archived_at"])
