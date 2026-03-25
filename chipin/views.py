@@ -116,16 +116,6 @@ def accept_invite(request, group_id):
         messages.error(request, "Invalid invitation link.")  
     return redirect('chipin:group_detail', group_id=group.id)
 
-def _auto_login_as_invitee(request, invite):
-    user = invite.invited_user
-    backend = None
-    try:
-        backend = settings.AUTHENTICATION_BACKENDS[0]
-    except Exception:
-        backend = "django.contrib.auth.backends.ModelBackend"
-    setattr(user, "backend", backend)
-    login(request, user)
-
 @login_required
 def invite_sent(request):
     group_id = request.GET.get("group")
